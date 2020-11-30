@@ -267,8 +267,8 @@ public final class SortedIterators {
 
 	private static class DiffMergingIterator<T> extends UnmodifiableIterator<T> {
 
-		private final PeekingIterator<? extends T> sourceIterator;
-		private final PeekingIterator<? extends T> targetIterator;
+		private final Iterator<? extends T> sourceIterator;
+		private final Iterator<? extends T> targetIterator;
 		private final Comparator<? super T> itemComparator;
 
 		private T line1 = null;
@@ -283,9 +283,7 @@ public final class SortedIterators {
 			this.targetIterator = Iterators.peekingIterator(Iterators.filter(Iterators.filter(targetIterator, new CheckSortedPredicate<>(itemComparator)), new DeDuplicatePredicate<>()));
 			this.itemComparator = itemComparator;
 
-			if (targetIterator.hasNext()) {
-				line2 = this.targetIterator.peek();
-			}
+			line2 = this.targetIterator.next();
 		}
 
 		@Override
