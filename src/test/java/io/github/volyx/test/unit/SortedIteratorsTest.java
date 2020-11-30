@@ -27,7 +27,6 @@ public class SortedIteratorsTest {
 	private static final Random RANDOM = new Random();
 	private static final int MAX_VALUE = 100;
 
-
 	@Test
 	public void mergeSorted() {
 
@@ -92,7 +91,7 @@ public class SortedIteratorsTest {
 	@Test
 	public void testRandom() {
 		int attempts = 0;
-		while (attempts++ < 20) {
+		while (attempts++ < 200) {
 
 			List<Integer> one = IntStream.generate(() -> RANDOM.nextInt(MAX_VALUE)).limit(RANDOM.nextInt(MAX_VALUE)).boxed().sorted().collect(Collectors.toList());
 			List<Integer> two = IntStream.generate(() -> RANDOM.nextInt(MAX_VALUE)).limit(RANDOM.nextInt(MAX_VALUE)).boxed().sorted().collect(Collectors.toList());
@@ -109,6 +108,37 @@ public class SortedIteratorsTest {
 			Collections.sort(diff);
 
 			Assert.assertEquals("one: " + one + " two: " + two, diff, result);
+		}
+	}
+
+	@Test
+	public void testSymmetricDifferenceRandom() {
+
+		int attempt = 0;
+
+		while (attempt++ < 20) {
+			List<Integer> one = IntStream.generate(() -> RANDOM.nextInt(MAX_VALUE)).limit(RANDOM.nextInt(MAX_VALUE)).boxed().sorted().collect(Collectors.toList());
+			List<Integer> two = IntStream.generate(() -> RANDOM.nextInt(MAX_VALUE)).limit(RANDOM.nextInt(MAX_VALUE)).boxed().sorted().collect(Collectors.toList());
+
+			Set<Integer> uniq1 = new HashSet<>(one);
+			Set<Integer> uniq2 = new HashSet<>(two);
+
+			List<Integer> diff = new ArrayList<>(Sets.symmetricDifference(uniq1, uniq2));
+
+			Collections.sort(diff);
+
+			List<Integer> addList = new ArrayList<>();
+			Consumer<Integer> addConsumer = addList::add;
+
+			SortedIterators.symmetricDifference(one.iterator(), two.iterator(), Integer::compareTo, addConsumer);
+
+			Collections.sort(addList);
+
+			Assert.assertNotNull(addList);
+
+			Assert.assertEquals("one: " + one + " two: " + two + " diff: " + diff, diff.size(), addList.size());
+
+			Assert.assertEquals("one: " + one + " two: " + two + " diff: " + diff, diff, addList);
 		}
 	}
 }

@@ -53,6 +53,19 @@ public final class SortedIterators {
 		return Iterators.mergeSorted(iteratorList, comparator);
 	}
 
+	public static <T> UnmodifiableIterator<T> intersection(
+			Iterable<? extends Iterator<T>> iterators, Comparator<T> comparator) {
+		checkNotNull(iterators, "iterators");
+		checkNotNull(comparator, "comparator");
+
+		final List<Iterator<T>> iteratorList = new ArrayList<>();
+
+		for (Iterator<T> iterator : iterators) {
+			iteratorList.add(Iterators.filter(Iterators.filter(iterator, new CheckSortedPredicate<>(comparator)), new DeDuplicatePredicate<>()));
+		}
+
+		return new IntersectionIterator(iteratorList, comparator);
+	}
 
 	public static <T> void diffSortedBoth(Iterator<T> sourceIterator, Iterator<T> targetIterator, Comparator<T> comparator, Consumer<T> addConsumer, Consumer<T> removeConsumer) {
 		if (!sourceIterator.hasNext() && !targetIterator.hasNext()) {
@@ -83,8 +96,8 @@ public final class SortedIterators {
 				new DeDuplicateConsumer<>(removeConsumer));
 	}
 
-	private static <T> void differenceSortedBoth(PeekingIterator<T> sourceIterator,
-												 PeekingIterator<T> targetIterator,
+	private static <T> void differenceSortedBoth(Iterator<T> sourceIterator,
+												 Iterator<T> targetIterator,
 												 Comparator<T> comparator,
 												 Consumer<T> addConsumer,
 												 Consumer<T> removeConsumer) {
@@ -178,62 +191,14 @@ public final class SortedIterators {
 		}
 	}
 
-	public static void symmetricDifference(File source, File target, Consumer<String> addConsumer) {
+	public static <T> void symmetricDifference(Iterator<T> sourceIterator,
+										   Iterator<T> targetIterator,
+										   Comparator<T> comparator,
+										   Consumer<T> mergeConsumer) {
 
-		try (BufferedReader reader1 = new BufferedReader(new FileReader(source));
-			 BufferedReader reader2 = new BufferedReader(new FileReader(target))) {
-
-			String line1 = reader1.readLine();
-			String line2 = reader2.readLine();
-
-			String prevLine1 = "";
-			String prevLine2 = "";
-
-			while (line1 != null || line2 != null) {
-				if (line1 == null) {
-					addConsumer.accept(line2);
-					prevLine2 = line2;
-					line2 = reader2.readLine();
-					continue;
-				} else if (line2 == null) {
-					addConsumer.accept(line1);
-					prevLine1 = line1;
-					line1 = reader1.readLine();
-					continue;
-				}
-
-				// remove 01
-				//
-				// 01234_
-				// __2_45
-
-				line1 = line1.toUpperCase(Locale.ENGLISH);
-				line2 = line2.toUpperCase(Locale.ENGLISH);
-
-				Preconditions.checkArgument(line1.compareTo(prevLine1) >= 0, "sourceBufferedReader is not sorted");
-				Preconditions.checkArgument(line2.compareTo(prevLine2) >= 0, "targetBufferedReader is not sorted");
-
-				prevLine1 = line1;
-				prevLine2 = line2;
-
-				final int compare = line1.compareTo(line2);
-				if (compare == 0) {
-					line1 = reader1.readLine();
-					line2 = reader2.readLine();
-				} else if (compare < 0) {
-					addConsumer.accept(line1);
-					prevLine1 = line1;
-					line1 = reader1.readLine();
-				} else {
-					addConsumer.accept(line2);
-					prevLine2 = line2;
-					line2 = reader2.readLine();
-				}
-			}
-		} catch (Exception e) {
-			System.err.println(e.getMessage());
-			throw new RuntimeException(e);
-		}
+		final Consumer<T> addConsumer = mergeConsumer::accept;
+		Consumer<T> removeConsumer = mergeConsumer::accept;
+		diffSortedBoth(sourceIterator, targetIterator, comparator, addConsumer, removeConsumer);
 	}
 
 	private static class DeDuplicateConsumer<T> implements Consumer<T> {
@@ -272,7 +237,7 @@ public final class SortedIterators {
 		private final Comparator<? super T> itemComparator;
 
 		private T line1 = null;
-		private T line2 = null;
+		private T line2;
 
 		public DiffMergingIterator(
 				Iterator<? extends T> sourceIterator,
@@ -372,6 +337,26 @@ public final class SortedIterators {
 				}
 			}
 			return false;
+		}
+	}
+
+	private static class IntersectionIterator<T> extends UnmodifiableIterator<T> {
+		private final List<Iterator<T>> iteratorList;
+		private final Comparator<T> comparator;
+
+		public IntersectionIterator(List<Iterator<T>> iteratorList, Comparator<T> comparator) {
+			this.iteratorList = iteratorList;
+			this.comparator = comparator;
+		}
+
+		@Override
+		public boolean hasNext() {
+			return false;
+		}
+
+		@Override
+		public T next() {
+			return null;
 		}
 	}
 }
