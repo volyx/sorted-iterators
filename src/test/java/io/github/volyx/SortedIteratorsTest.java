@@ -1,9 +1,8 @@
-package io.github.volyx.test.unit;
+package io.github.volyx;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.UnmodifiableIterator;
-import io.github.volyx.SortedIterators;
 import org.junit.Assert;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
