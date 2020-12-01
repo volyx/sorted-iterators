@@ -15,20 +15,19 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.junit.Assert.assertEquals;
 
-public class SortedIteratorsTest {
+class SortedIteratorsTest {
 
 	private static final Random RANDOM = new Random();
 	private static final int MAX_VALUE = 100;
 
 	@Test
-	public void mergeSorted() {
+	void mergeSorted() {
 
 		final List<Integer> one = List.of(1, 2, 3, 3, 5, 5, 6, 8, 8).stream().distinct().collect(Collectors.toList());
 		final List<Integer> two = List.of(1, 4, 5, 5, 5, 6, 8, 9).stream().distinct().collect(Collectors.toList());
@@ -45,9 +44,9 @@ public class SortedIteratorsTest {
 		assertEquals(expected, result);
 	}
 
-	@Timeout(value = 30, unit = TimeUnit.SECONDS)
+	@Timeout(value = 30)
 	@Test
-	public void diffSortedBoth() {
+	void diffSortedBoth() {
 		int attempts = 0;
 		while (attempts++ < 100) {
 			List<Integer> one = IntStream.generate(() -> RANDOM.nextInt(MAX_VALUE)).limit(RANDOM.nextInt(MAX_VALUE)).boxed().sorted().collect(Collectors.toList());
@@ -56,8 +55,6 @@ public class SortedIteratorsTest {
 //			one = List.<Integer>of(8, 9).stream().sorted().collect(Collectors.toList());
 //			two = List.<Integer>of(4, 5).stream().sorted().collect(Collectors.toList());
 
-			System.out.println("one = " + one);
-			System.out.println("two = " + two);
 			final List<Integer> removeListExpected = Sets.difference(new HashSet<>(one), new HashSet<>(two)).stream().sorted().collect(Collectors.toList());
 			final List<Integer> addListExpected = Sets.difference(new HashSet<>(two), new HashSet<>(one)).stream().sorted().collect(Collectors.toList());
 
@@ -76,7 +73,7 @@ public class SortedIteratorsTest {
 
 
 	@Test
-	public void test() {
+	void test() {
 
 		final List<Integer> source = List.of(1, 2, 3, 4, 5);
 		final List<Integer> target = List.of(1, 2, 4, 5);
@@ -89,7 +86,7 @@ public class SortedIteratorsTest {
 	}
 
 	@Test
-	public void testRandom() {
+	void testRandom() {
 		int attempts = 0;
 		while (attempts++ < 200) {
 
@@ -112,7 +109,7 @@ public class SortedIteratorsTest {
 	}
 
 	@Test
-	public void testSymmetricDifferenceRandom() {
+	void testSymmetricDifferenceRandom() {
 
 		int attempt = 0;
 
@@ -139,6 +136,32 @@ public class SortedIteratorsTest {
 			Assert.assertEquals("one: " + one + " two: " + two + " diff: " + diff, diff.size(), addList.size());
 
 			Assert.assertEquals("one: " + one + " two: " + two + " diff: " + diff, diff, addList);
+		}
+	}
+
+	@Test
+	void testIntersectionRandom() {
+
+		int attempt = 0;
+
+		while (attempt++ < 200) {
+			List<Integer> one = IntStream.generate(() -> RANDOM.nextInt(MAX_VALUE)).limit(RANDOM.nextInt(MAX_VALUE)).boxed().sorted().collect(Collectors.toList());
+			List<Integer> two = IntStream.generate(() -> RANDOM.nextInt(MAX_VALUE)).limit(RANDOM.nextInt(MAX_VALUE)).boxed().sorted().collect(Collectors.toList());
+
+			Set<Integer> uniq1 = new HashSet<>(one);
+			Set<Integer> uniq2 = new HashSet<>(two);
+
+			List<Integer> intersection = new ArrayList<>(Sets.intersection(uniq1, uniq2));
+
+			Collections.sort(intersection);
+
+			final UnmodifiableIterator<Integer> it = SortedIterators.intersection(one.iterator(), two.iterator(), Integer::compareTo);
+
+			final ImmutableList<Integer> result = ImmutableList.copyOf(it);
+
+			Assert.assertEquals("one: " + one + " two: " + two + " intersection: " + intersection, intersection.size(), result.size());
+
+			Assert.assertEquals("one: " + one + " two: " + two + " intersection: " + intersection, intersection, result);
 		}
 	}
 }

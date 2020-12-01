@@ -1,20 +1,15 @@
 package io.github.volyx;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.UnmodifiableIterator;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -53,26 +48,28 @@ public final class SortedIterators {
 		return Iterators.mergeSorted(iteratorList, comparator);
 	}
 
-	public static <T> UnmodifiableIterator<T> intersection(
-			Iterable<? extends Iterator<T>> iterators, Comparator<T> comparator) {
-		checkNotNull(iterators, "iterators");
+	public static <T> UnmodifiableIterator<T> intersection(Iterator<T> sourceIterator,
+														   Iterator<T> targetIterator,
+														   Comparator<T> comparator) {
+		checkNotNull(sourceIterator, "sourceIterator");
+		checkNotNull(targetIterator, "targetIterator");
 		checkNotNull(comparator, "comparator");
 
-		final List<Iterator<T>> iteratorList = new ArrayList<>();
-
-		for (Iterator<T> iterator : iterators) {
-			iteratorList.add(Iterators.filter(Iterators.filter(iterator, new CheckSortedPredicate<>(comparator)), new DeDuplicatePredicate<>()));
+		if (!sourceIterator.hasNext()) {
+			return ImmutableList.<T>of().iterator();
 		}
 
-		return new IntersectionIterator(iteratorList, comparator);
+		if (!targetIterator.hasNext()) {
+			return ImmutableList.<T>of().iterator();
+		}
+
+		return new IntersectionIterator<>(sourceIterator, targetIterator, comparator);
 	}
 
 	public static <T> void diffSortedBoth(Iterator<T> sourceIterator, Iterator<T> targetIterator, Comparator<T> comparator, Consumer<T> addConsumer, Consumer<T> removeConsumer) {
 		if (!sourceIterator.hasNext() && !targetIterator.hasNext()) {
 			return;
 		}
-		// 10
-		//
 		if (sourceIterator.hasNext() && !targetIterator.hasNext()) {
 			Iterator<T> it = Iterators.filter(sourceIterator, new DeDuplicatePredicate<>());
 			while (it.hasNext()) {
@@ -112,9 +109,6 @@ public final class SortedIterators {
 			}
 			return;
 		}
-
-		//	2
-		// 	4, 6, 7, 9
 
 		T lastEqual = null;
 
@@ -196,9 +190,7 @@ public final class SortedIterators {
 										   Comparator<T> comparator,
 										   Consumer<T> mergeConsumer) {
 
-		final Consumer<T> addConsumer = mergeConsumer::accept;
-		Consumer<T> removeConsumer = mergeConsumer::accept;
-		diffSortedBoth(sourceIterator, targetIterator, comparator, addConsumer, removeConsumer);
+		diffSortedBoth(sourceIterator, targetIterator, comparator, mergeConsumer, mergeConsumer);
 	}
 
 	private static class DeDuplicateConsumer<T> implements Consumer<T> {
@@ -221,7 +213,6 @@ public final class SortedIterators {
 					delegate.accept(t);
 				}
 			}
-
 		}
 
 		@Override
@@ -253,9 +244,6 @@ public final class SortedIterators {
 
 		@Override
 		public boolean hasNext() {
-			// (1, 2, 3, 4, 5);
-			// (1, 2, 4, 5);
-
 			if (line1 != null) {
 				return true;
 			}
@@ -341,22 +329,56 @@ public final class SortedIterators {
 	}
 
 	private static class IntersectionIterator<T> extends UnmodifiableIterator<T> {
-		private final List<Iterator<T>> iteratorList;
-		private final Comparator<T> comparator;
 
-		public IntersectionIterator(List<Iterator<T>> iteratorList, Comparator<T> comparator) {
-			this.iteratorList = iteratorList;
-			this.comparator = comparator;
+
+		private final Iterator<? extends T> sourceIterator;
+		private final Iterator<? extends T> targetIterator;
+		private final Comparator<? super T> itemComparator;
+
+		private T nextVal = null;
+
+		public IntersectionIterator(
+				Iterator<? extends T> sourceIterator,
+				Iterator<? extends T> targetIterator,
+				final Comparator<? super T> itemComparator) {
+
+			this.sourceIterator = Iterators.peekingIterator(Iterators.filter(Iterators.filter(sourceIterator, new CheckSortedPredicate<>(itemComparator)), new DeDuplicatePredicate<>()));
+			this.targetIterator = Iterators.peekingIterator(Iterators.filter(Iterators.filter(targetIterator, new CheckSortedPredicate<>(itemComparator)), new DeDuplicatePredicate<>()));
+			this.itemComparator = itemComparator;
+
+			adjust();
 		}
 
-		@Override
 		public boolean hasNext() {
-			return false;
+			if(nextVal == null) return false;
+			return true;
 		}
 
-		@Override
 		public T next() {
-			return null;
+			T toRet = nextVal;
+			adjust();
+			return toRet;
+		}
+
+		private void adjust() {
+			nextVal = null;
+			T val1 = sourceIterator.hasNext() ? sourceIterator.next() : null;
+			T val2 = targetIterator.hasNext() ? targetIterator.next() : null;
+			while (true) {
+				if(val1 == null || val2 == null) break;
+				if(val1 == val2) {
+					nextVal = val1;
+					break;
+				}else if(itemComparator.compare(val1, val2) < 0) { // val1 < val2
+					if(sourceIterator.hasNext()) {
+						val1 = sourceIterator.next();
+					} else break;
+				}else{
+					if(targetIterator.hasNext()) {
+						val2 = targetIterator.next();
+					}else break;
+				}
+			}
 		}
 	}
 }
