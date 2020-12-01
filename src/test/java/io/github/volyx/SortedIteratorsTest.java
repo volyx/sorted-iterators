@@ -92,9 +92,15 @@ class SortedIteratorsTest {
 			List<Integer> one = IntStream.generate(() -> RANDOM.nextInt(MAX_VALUE)).limit(RANDOM.nextInt(MAX_VALUE)).boxed().sorted().collect(Collectors.toList());
 			List<Integer> two = IntStream.generate(() -> RANDOM.nextInt(MAX_VALUE)).limit(RANDOM.nextInt(MAX_VALUE)).boxed().sorted().collect(Collectors.toList());
 
-			final Iterator<Integer> it = SortedIterators.diffSorted(one.iterator(), two.iterator(), Integer::compareTo);
+			final List<Integer> removeList = new ArrayList<>();
+			final List<Integer> addList = new ArrayList<>();
 
-			final List<Integer> result = ImmutableList.copyOf(it);
+			final Consumer<Integer> removeConsumer = removeList::add;
+			final Consumer<Integer> addConsumer = addList::add;
+			SortedIterators.diffSortedBoth(one.iterator(), two.iterator(), Integer::compareTo, addConsumer, removeConsumer);
+
+			final List<Integer> removeResult = ImmutableList.copyOf(SortedIterators.diffSorted(one.iterator(), two.iterator(), Integer::compareTo));
+			final List<Integer> addResult = ImmutableList.copyOf(SortedIterators.diffSorted(two.iterator(), one.iterator(), Integer::compareTo));
 
 			Set<Integer> uniq1 = new HashSet<>(one);
 			Set<Integer> uniq2 = new HashSet<>(two);
@@ -103,7 +109,9 @@ class SortedIteratorsTest {
 
 			Collections.sort(diff);
 
-			Assert.assertEquals("one: " + one + " two: " + two, diff, result);
+			Assert.assertEquals("one: " + one + " two: " + two, diff, removeResult);
+			Assert.assertEquals("one: " + one + " two: " + two, removeList, removeResult);
+			Assert.assertEquals("one: " + one + " two: " + two, addList, addResult);
 		}
 	}
 
