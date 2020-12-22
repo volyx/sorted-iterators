@@ -18,367 +18,562 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class SortedIterators {
 
-	private SortedIterators() {}
+    private SortedIterators() {
+    }
 
-	public static <T> UnmodifiableIterator<T> diffSorted(Iterator<T> sourceIterator,
-														 Iterator<T> targetIterator,
-														 Comparator<T> comparator) {
-		checkNotNull(sourceIterator, "sourceIterator");
-		checkNotNull(targetIterator, "targetIterator");
-		checkNotNull(comparator, "comparator");
+    public static <T> SortedIteratorsBuilder<T> builder() {
+        return new SortedIteratorsBuilder<>();
+    }
 
-		if (!targetIterator.hasNext()) {
-			return Iterators.filter(sourceIterator, new DeDuplicatePredicate<>());
-		}
+    public static <T> Iterator<T> union(
+            Iterable<? extends Iterator<T>> iterators, Comparator<T> comparator) {
+        checkNotNull(iterators, "iterators");
+        checkNotNull(comparator, "comparator");
 
-		return new DiffMergingIterator<>(sourceIterator, targetIterator, comparator);
-	}
+        final List<Iterator<T>> iteratorList = new ArrayList<>();
 
-	public static <T> UnmodifiableIterator<T> mergeSorted(
-			Iterable<? extends Iterator<T>> iterators, Comparator<T> comparator) {
-		checkNotNull(iterators, "iterators");
-		checkNotNull(comparator, "comparator");
+        for (Iterator<T> iterator : iterators) {
+            iteratorList.add(Iterators.filter(Iterators.filter(iterator, new CheckSortedPredicate<>(comparator)), new DeDuplicatePredicate<>()));
+        }
 
-		final List<Iterator<T>> iteratorList = new ArrayList<>();
+        final UnmodifiableIterator<T> mergedIterator = Iterators.mergeSorted(iteratorList, comparator);
+        return Iterators.filter(Iterators.filter(mergedIterator, new CheckSortedPredicate<>(comparator)), new DeDuplicatePredicate<>());
+    }
 
-		for (Iterator<T> iterator : iterators) {
-			iteratorList.add(Iterators.filter(Iterators.filter(iterator, new CheckSortedPredicate<>(comparator)), new DeDuplicatePredicate<>()));
-		}
+    public static <T> Iterator<T> intersection(Iterator<T> sourceIterator, Iterator<T> targetIterator,
+                                               Comparator<T> comparator) {
+        checkNotNull(sourceIterator, "sourceIterator");
+        checkNotNull(targetIterator, "targetIterator");
+        checkNotNull(comparator, "comparator");
 
-		return Iterators.mergeSorted(iteratorList, comparator);
-	}
+        if (!sourceIterator.hasNext()) {
+            return ImmutableList.<T>of().iterator();
+        }
 
-	public static <T> UnmodifiableIterator<T> intersection(Iterator<T> sourceIterator,
-														   Iterator<T> targetIterator,
-														   Comparator<T> comparator) {
-		checkNotNull(sourceIterator, "sourceIterator");
-		checkNotNull(targetIterator, "targetIterator");
-		checkNotNull(comparator, "comparator");
+        if (!targetIterator.hasNext()) {
+            return ImmutableList.<T>of().iterator();
+        }
 
-		if (!sourceIterator.hasNext()) {
-			return ImmutableList.<T>of().iterator();
-		}
+        return new IntersectionIterator<>(sourceIterator, targetIterator, comparator);
+    }
 
-		if (!targetIterator.hasNext()) {
-			return ImmutableList.<T>of().iterator();
-		}
+    public static <T> Iterator<T> exclude(Iterator<T> sourceIterator,
+                                          Iterator<T> targetIterator,
+                                          Comparator<T> comparator) {
+        checkNotNull(sourceIterator, "sourceIterator");
+        checkNotNull(targetIterator, "targetIterator");
+        checkNotNull(comparator, "comparator");
 
-		return new IntersectionIterator<>(sourceIterator, targetIterator, comparator);
-	}
+        if (!sourceIterator.hasNext()) {
+            return ImmutableList.<T>of().iterator();
+        }
 
-	public static <T> void diffSortedBoth(Iterator<T> sourceIterator, Iterator<T> targetIterator, Comparator<T> comparator, Consumer<T> addConsumer, Consumer<T> removeConsumer) {
-		if (!sourceIterator.hasNext() && !targetIterator.hasNext()) {
-			return;
-		}
-		if (sourceIterator.hasNext() && !targetIterator.hasNext()) {
-			Iterator<T> it = Iterators.filter(sourceIterator, new DeDuplicatePredicate<>());
-			while (it.hasNext()) {
-				removeConsumer.accept(it.next());
-			}
- 			return;
-		}
+        if (!targetIterator.hasNext()) {
+            return Iterators.filter(sourceIterator, new DeDuplicatePredicate<>());
+        }
 
-		if (!sourceIterator.hasNext() && targetIterator.hasNext()) {
-			Iterator<T> it = Iterators.filter(targetIterator, new DeDuplicatePredicate<>());
-			while (it.hasNext()) {
-				addConsumer.accept(it.next());
-			}
-			return;
-		}
+        return new DiffMergingIterator<>(sourceIterator, targetIterator, comparator);
+    }
 
-		differenceSortedBoth(Iterators.peekingIterator(Iterators.filter(sourceIterator, new DeDuplicatePredicate<>())),
-				Iterators.peekingIterator(Iterators.filter(targetIterator, new DeDuplicatePredicate<>())),
-				comparator,
-				new DeDuplicateConsumer<>(addConsumer),
-				new DeDuplicateConsumer<>(removeConsumer));
-	}
+    public static <T> Iterator<T> difference(Iterator<T> sourceIterator,
+                                             Iterator<T> targetIterator,
+                                             Comparator<T> comparator) {
+        checkNotNull(sourceIterator, "sourceIterator");
+        checkNotNull(targetIterator, "targetIterator");
+        checkNotNull(comparator, "comparator");
 
-	private static <T> void differenceSortedBoth(Iterator<T> sourceIterator,
-												 Iterator<T> targetIterator,
-												 Comparator<T> comparator,
-												 Consumer<T> addConsumer,
-												 Consumer<T> removeConsumer) {
-		T line1 = sourceIterator.next();
-		T line2 = targetIterator.next();
-		int compare;
-		if (!sourceIterator.hasNext() && !targetIterator.hasNext()) {
-			compare = comparator.compare(line1, line2);
-			if (compare != 0) {
-				addConsumer.accept(line2);
-				removeConsumer.accept(line1);
-			}
-			return;
-		}
+        if (!sourceIterator.hasNext()) {
+            return Iterators.filter(targetIterator, new DeDuplicatePredicate<>());
+        }
 
-		T lastEqual = null;
+        if (!targetIterator.hasNext()) {
+            return Iterators.filter(sourceIterator, new DeDuplicatePredicate<>());
+        }
 
-		while (sourceIterator.hasNext() || targetIterator.hasNext()) {
+        return new DifferenceIterator<>(
+                Iterators.filter(sourceIterator, new DeDuplicatePredicate<>()),
+                Iterators.filter(targetIterator, new DeDuplicatePredicate<>()),
+                comparator);
+    }
 
-			compare = comparator.compare(line1, line2);
-			if (compare == 0) {
-				lastEqual = line1;
-				if (targetIterator.hasNext()) {
-					line2 = targetIterator.next();
-				} else {
-					while (sourceIterator.hasNext()) {
-						line1 = sourceIterator.next();
-						removeConsumer.accept(line1);
-					}
-					break;
-				}
-				if (sourceIterator.hasNext()) {
-					line1 = sourceIterator.next();
-				} else {
-					addConsumer.accept(line2);
-					while (targetIterator.hasNext()) {
-						line2 = targetIterator.next();
-						addConsumer.accept(line2);
-					}
-					break;
-				}
+    public static <T> void differenceConsumer(Iterator<T> sourceIterator, Iterator<T> targetIterator, Comparator<T> comparator, Consumer<T> addConsumer, Consumer<T> removeConsumer) {
+        if (!sourceIterator.hasNext() && !targetIterator.hasNext()) {
+            return;
+        }
+        if (sourceIterator.hasNext() && !targetIterator.hasNext()) {
+            Iterator<T> it = Iterators.filter(sourceIterator, new DeDuplicatePredicate<>());
+            while (it.hasNext()) {
+                removeConsumer.accept(it.next());
+            }
+            return;
+        }
 
-				if (!sourceIterator.hasNext() && !targetIterator.hasNext()) {
-					compare = comparator.compare(line1, line2);
-					if (compare != 0) {
-						addConsumer.accept(line2);
-						removeConsumer.accept(line1);
-					}
-				}
- 			} else if (compare < 0) {
-				removeConsumer.accept(line1);
-				if (sourceIterator.hasNext()) {
-					line1 = sourceIterator.next();
-				} else {
-					addConsumer.accept(line2);
-					while (targetIterator.hasNext()) {
-						line2 = targetIterator.next();
-						addConsumer.accept(line2);
-					}
-				}
-			} else {
-				addConsumer.accept(line2);
-				if (targetIterator.hasNext()) {
-					line2 = targetIterator.next();
-				} else {
-					removeConsumer.accept(line1);
-					while (sourceIterator.hasNext()) {
-						line1 = sourceIterator.next();
-						removeConsumer.accept(line1);
-					}
-				}
-			}
-		}
+        if (!sourceIterator.hasNext() && targetIterator.hasNext()) {
+            Iterator<T> it = Iterators.filter(targetIterator, new DeDuplicatePredicate<>());
+            while (it.hasNext()) {
+                addConsumer.accept(it.next());
+            }
+            return;
+        }
 
-		compare = comparator.compare(line1, line2);
+        differenceSortedBoth(Iterators.peekingIterator(Iterators.filter(sourceIterator, new DeDuplicatePredicate<>())),
+                Iterators.peekingIterator(Iterators.filter(targetIterator, new DeDuplicatePredicate<>())),
+                comparator,
+                new DeDuplicateConsumer<>(addConsumer),
+                new DeDuplicateConsumer<>(removeConsumer));
+    }
 
-		if (compare != 0) {
-			if (lastEqual != null && comparator.compare(line1, lastEqual) == 0) {
+    private static <T> void differenceSortedBoth(Iterator<T> sourceIterator,
+                                                 Iterator<T> targetIterator,
+                                                 Comparator<T> comparator,
+                                                 Consumer<T> addConsumer,
+                                                 Consumer<T> removeConsumer) {
+        T line1 = sourceIterator.next();
+        T line2 = targetIterator.next();
+        int compare;
+        if (!sourceIterator.hasNext() && !targetIterator.hasNext()) {
+            compare = comparator.compare(line1, line2);
+            if (compare != 0) {
+                addConsumer.accept(line2);
+                removeConsumer.accept(line1);
+            }
+            return;
+        }
 
-			} else {
-				removeConsumer.accept(line1);
-			}
-			if (lastEqual != null && comparator.compare(line2, lastEqual) == 0) {
+        T lastEqual = null;
 
-			} else {
-				addConsumer.accept(line2);
-			}
-		}
-	}
+        while (sourceIterator.hasNext() || targetIterator.hasNext()) {
 
-	public static <T> void symmetricDifference(Iterator<T> sourceIterator,
-										   Iterator<T> targetIterator,
-										   Comparator<T> comparator,
-										   Consumer<T> mergeConsumer) {
+            compare = comparator.compare(line1, line2);
+            if (compare == 0) {
+                lastEqual = line1;
+                if (targetIterator.hasNext()) {
+                    line2 = targetIterator.next();
+                } else {
+                    while (sourceIterator.hasNext()) {
+                        line1 = sourceIterator.next();
+                        removeConsumer.accept(line1);
+                    }
+                    break;
+                }
+                if (sourceIterator.hasNext()) {
+                    line1 = sourceIterator.next();
+                } else {
+                    addConsumer.accept(line2);
+                    while (targetIterator.hasNext()) {
+                        line2 = targetIterator.next();
+                        addConsumer.accept(line2);
+                    }
+                    break;
+                }
 
-		diffSortedBoth(sourceIterator, targetIterator, comparator, mergeConsumer, mergeConsumer);
-	}
+                if (!sourceIterator.hasNext() && !targetIterator.hasNext()) {
+                    compare = comparator.compare(line1, line2);
+                    if (compare != 0) {
+                        addConsumer.accept(line2);
+                        removeConsumer.accept(line1);
+                    }
+                }
+            } else if (compare < 0) {
+                removeConsumer.accept(line1);
+                if (sourceIterator.hasNext()) {
+                    line1 = sourceIterator.next();
+                } else {
+                    addConsumer.accept(line2);
+                    while (targetIterator.hasNext()) {
+                        line2 = targetIterator.next();
+                        addConsumer.accept(line2);
+                    }
+                }
+            } else {
+                addConsumer.accept(line2);
+                if (targetIterator.hasNext()) {
+                    line2 = targetIterator.next();
+                } else {
+                    removeConsumer.accept(line1);
+                    while (sourceIterator.hasNext()) {
+                        line1 = sourceIterator.next();
+                        removeConsumer.accept(line1);
+                    }
+                }
+            }
+        }
 
-	private static class DeDuplicateConsumer<T> implements Consumer<T> {
-		private T prev;
-		private final Consumer<T> delegate;
+        compare = comparator.compare(line1, line2);
 
-		public DeDuplicateConsumer(Consumer<T> delegate) {
-			this.delegate = delegate;
-		}
+        if (compare != 0) {
+            if (lastEqual != null && comparator.compare(line1, lastEqual) == 0) {
 
-		@Override
-		public void accept(T t) {
+            } else {
+                removeConsumer.accept(line1);
+            }
+            if (lastEqual != null && comparator.compare(line2, lastEqual) == 0) {
 
-			if (prev == null) {
-				delegate.accept(t);
-				prev = t;
-			} else {
-				if (!Objects.equals(prev, t)) {
-					prev = t;
-					delegate.accept(t);
-				}
-			}
-		}
+            } else {
+                addConsumer.accept(line2);
+            }
+        }
+    }
 
-		@Override
-		public Consumer<T> andThen(Consumer<? super T> after) {
-			return delegate.andThen(after);
-		}
-	}
+    public static <T> void symmetricDifference(Iterator<T> sourceIterator,
+                                               Iterator<T> targetIterator,
+                                               Comparator<T> comparator,
+                                               Consumer<T> mergeConsumer) {
 
-	private static class DiffMergingIterator<T> extends UnmodifiableIterator<T> {
+        differenceConsumer(sourceIterator, targetIterator, comparator, mergeConsumer, mergeConsumer);
+    }
 
-		private final Iterator<? extends T> sourceIterator;
-		private final Iterator<? extends T> targetIterator;
-		private final Comparator<? super T> itemComparator;
+    private static class DeDuplicateConsumer<T> implements Consumer<T> {
+        private T prev;
+        private final Consumer<T> delegate;
 
-		private T line1 = null;
-		private T line2;
+        public DeDuplicateConsumer(Consumer<T> delegate) {
+            this.delegate = delegate;
+        }
 
-		public DiffMergingIterator(
-				Iterator<? extends T> sourceIterator,
-				Iterator<? extends T> targetIterator,
-				final Comparator<? super T> itemComparator) {
+        @Override
+        public void accept(T t) {
 
-			this.sourceIterator = Iterators.peekingIterator(Iterators.filter(Iterators.filter(sourceIterator, new CheckSortedPredicate<>(itemComparator)), new DeDuplicatePredicate<>()));
-			this.targetIterator = Iterators.peekingIterator(Iterators.filter(Iterators.filter(targetIterator, new CheckSortedPredicate<>(itemComparator)), new DeDuplicatePredicate<>()));
-			this.itemComparator = itemComparator;
+            if (prev == null) {
+                delegate.accept(t);
+                prev = t;
+            } else {
+                if (!Objects.equals(prev, t)) {
+                    prev = t;
+                    delegate.accept(t);
+                }
+            }
+        }
 
-			line2 = this.targetIterator.next();
-		}
+        @Override
+        public Consumer<T> andThen(Consumer<? super T> after) {
+            return delegate.andThen(after);
+        }
+    }
 
-		@Override
-		public boolean hasNext() {
-			if (line1 != null) {
-				return true;
-			}
+    private static class DiffMergingIterator<T> implements Iterator<T> {
 
-			while (sourceIterator.hasNext()) {
-				line1 = sourceIterator.next();
-				int compare = itemComparator.compare(line1, line2);
-				if (compare == 0) {
-					//nothing
-				} else if (compare < 0) {
-					return true;
-				} else {
-					while (targetIterator.hasNext()) {
-						line2 = targetIterator.next();
-						if (itemComparator.compare(line2, line1) < 0) {
+        private final Iterator<? extends T> sourceIterator;
+        private final Iterator<? extends T> targetIterator;
+        private final Comparator<? super T> itemComparator;
 
-						} else {
-							break;
-						}
-					}
-					compare = itemComparator.compare(line1, line2);
-					if (compare < 0) {
-						return true;
-					} else if (!targetIterator.hasNext() && compare > 0) {
-						return true;
-					}
-				}
-			}
-			return false;
-		}
+        private T line1 = null;
+        private T line2;
 
-		@Override
-		public T next() {
+        public DiffMergingIterator(
+                Iterator<? extends T> sourceIterator,
+                Iterator<? extends T> targetIterator,
+                final Comparator<? super T> itemComparator) {
 
-			if (line1 == null) throw new NoSuchElementException("no element");
-			T local = line1;
-			line1 = null;
-			return local;
-		}
-	}
+            this.sourceIterator = Iterators.peekingIterator(Iterators.filter(Iterators.filter(sourceIterator, new CheckSortedPredicate<>(itemComparator)), new DeDuplicatePredicate<>()));
+            this.targetIterator = Iterators.peekingIterator(Iterators.filter(Iterators.filter(targetIterator, new CheckSortedPredicate<>(itemComparator)), new DeDuplicatePredicate<>()));
+            this.itemComparator = itemComparator;
 
-	private static final class CheckSortedPredicate<T> implements Predicate<T> {
+            line2 = this.targetIterator.next();
+        }
 
-		private final Comparator<? super T> itemComparator;
+        @Override
+        public boolean hasNext() {
+            if (line1 != null) {
+                return true;
+            }
 
-		CheckSortedPredicate(Comparator<? super T> itemComparator) {
-			this.itemComparator = itemComparator;
-		}
+            while (sourceIterator.hasNext()) {
+                line1 = sourceIterator.next();
+                int compare = itemComparator.compare(line1, line2);
+                if (compare == 0) {
+                    //nothing
+                } else if (compare < 0) {
+                    return true;
+                } else {
+                    while (targetIterator.hasNext()) {
+                        line2 = targetIterator.next();
+                        if (itemComparator.compare(line2, line1) < 0) {
 
-		private T prev;
-		@Override
-		public boolean apply(@Nullable T t) {
-			if (prev == null) {
-				prev = t;
-			} else {
-				int compare = itemComparator.compare(prev, t);
-				if (compare > 0) {
-					throw new IllegalStateException("sorted predicate failed");
-				}
-			}
-			return true;
-		}
+                        } else {
+                            break;
+                        }
+                    }
+                    compare = itemComparator.compare(line1, line2);
+                    if (compare < 0) {
+                        return true;
+                    } else if (!targetIterator.hasNext() && compare > 0) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
 
-	}
+        @Override
+        public T next() {
 
-	private static final class DeDuplicatePredicate<T> implements Predicate<T> {
+            if (line1 == null) throw new NoSuchElementException("no element");
+            T local = line1;
+            line1 = null;
+            return local;
+        }
+    }
 
-		private T prev;
+    private static class DifferenceIterator<T> implements Iterator<T> {
 
-		@Override
-		public boolean apply(@Nullable T t) {
-			if (prev == null) {
-				prev = t;
-				return true;
-			} else {
-				if (!Objects.equals(prev, t)) {
-					prev = t;
-					return true;
-				}
-			}
-			return false;
-		}
-	}
-
-	private static class IntersectionIterator<T> extends UnmodifiableIterator<T> {
+        private final Iterator<? extends T> sourceIterator;
+        private final Iterator<? extends T> targetIterator;
+        private final Comparator<? super T> itemComparator;
 
 
-		private final Iterator<? extends T> sourceIterator;
-		private final Iterator<? extends T> targetIterator;
-		private final Comparator<? super T> itemComparator;
+        private T val1 = null;
+        private T lastVal1 = null;
+        private T val2 = null;
+        private T lastVal2 = null;
+        private T nextValue = null;
 
-		private T nextVal = null;
+        public DifferenceIterator(
+                Iterator<? extends T> sourceIterator,
+                Iterator<? extends T> targetIterator,
+                final Comparator<? super T> itemComparator) {
 
-		public IntersectionIterator(
-				Iterator<? extends T> sourceIterator,
-				Iterator<? extends T> targetIterator,
-				final Comparator<? super T> itemComparator) {
+            this.sourceIterator = Iterators.peekingIterator(Iterators.filter(Iterators.filter(sourceIterator, new CheckSortedPredicate<>(itemComparator)), new DeDuplicatePredicate<>()));
+            this.targetIterator = Iterators.peekingIterator(Iterators.filter(Iterators.filter(targetIterator, new CheckSortedPredicate<>(itemComparator)), new DeDuplicatePredicate<>()));
+            this.itemComparator = itemComparator;
 
-			this.sourceIterator = Iterators.peekingIterator(Iterators.filter(Iterators.filter(sourceIterator, new CheckSortedPredicate<>(itemComparator)), new DeDuplicatePredicate<>()));
-			this.targetIterator = Iterators.peekingIterator(Iterators.filter(Iterators.filter(targetIterator, new CheckSortedPredicate<>(itemComparator)), new DeDuplicatePredicate<>()));
-			this.itemComparator = itemComparator;
 
-			adjust();
-		}
+            val1 = sourceIterator.hasNext() ? sourceIterator.next() : null;
+            val2 = targetIterator.hasNext() ? targetIterator.next() : null;
 
-		public boolean hasNext() {
-			if(nextVal == null) return false;
-			return true;
-		}
+            adjust();
+        }
 
-		public T next() {
-			T toRet = nextVal;
-			adjust();
-			return toRet;
-		}
+        public boolean hasNext() {
+            if (nextValue == null) return false;
+            return true;
+        }
 
-		private void adjust() {
-			nextVal = null;
-			T val1 = sourceIterator.hasNext() ? sourceIterator.next() : null;
-			T val2 = targetIterator.hasNext() ? targetIterator.next() : null;
-			while (true) {
-				if(val1 == null || val2 == null) break;
-				if(val1 == val2) {
-					nextVal = val1;
-					break;
-				}else if(itemComparator.compare(val1, val2) < 0) { // val1 < val2
-					if(sourceIterator.hasNext()) {
-						val1 = sourceIterator.next();
-					} else break;
-				}else{
-					if(targetIterator.hasNext()) {
-						val2 = targetIterator.next();
-					}else break;
-				}
-			}
-		}
-	}
+        public T next() {
+            T toRet = nextValue;
+            adjust();
+            return toRet;
+        }
+
+        /*
+            1, 3, 4, 6, 7
+            4
+
+              1, 3, 6, 7
+         */
+        private void adjust() {
+            nextValue = null;
+            while (true) {
+                if (val1 == null && val2 == null) break;
+                final int compare;
+                if (val1 == null) {
+                    compare = itemComparator.compare(lastVal1, val2);
+                    if (compare == 0) {
+                        lastVal2 = val2;
+                        val2 = targetIterator.hasNext() ? targetIterator.next() : null;
+                    } else if (compare < 0) {
+                        nextValue = val2;
+                        lastVal2 = val2;
+                        val2 = targetIterator.hasNext() ? targetIterator.next() : null;
+                        break;
+                    } else {
+                        throw new UnsupportedOperationException();
+                    }
+                } else if (val2 == null) {
+                    compare = itemComparator.compare(val1, lastVal2);
+                    if (compare == 0) {
+                        lastVal1 = val1;
+                        val1 = sourceIterator.hasNext() ? sourceIterator.next() : null;
+                    } else if (compare > 0) {
+                        nextValue = val1;
+                        lastVal1 = val1;
+                        val1 = sourceIterator.hasNext() ? sourceIterator.next() : null;
+                        break;
+                    } else {
+                        throw new UnsupportedOperationException();
+                    }
+                } else {
+                    compare = itemComparator.compare(val1, val2);
+                    if (compare == 0) {
+                        lastVal1 = val1;
+                        val1 = sourceIterator.hasNext() ? sourceIterator.next() : null;
+                        lastVal2 = val2;
+                        val2 = targetIterator.hasNext() ? targetIterator.next() : null;
+                    } else {
+                        if (compare < 0) { // val1 < val2
+                            nextValue = val1;
+                            lastVal1 = val1;
+                            val1 = sourceIterator.hasNext() ? sourceIterator.next() : null;
+                            break;
+                        } else {
+                            nextValue = val2;
+                            lastVal2 = val2;
+                            val2 = targetIterator.hasNext() ? targetIterator.next() : null;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static final class CheckSortedPredicate<T> implements Predicate<T> {
+
+        private final Comparator<? super T> itemComparator;
+
+        CheckSortedPredicate(Comparator<? super T> itemComparator) {
+            this.itemComparator = itemComparator;
+        }
+
+        private T prev;
+
+        @Override
+        public boolean apply(@Nullable T t) {
+            if (prev == null) {
+                prev = t;
+            } else {
+                int compare = itemComparator.compare(prev, t);
+                if (compare > 0) {
+                    throw new IllegalStateException("sorted predicate failed");
+                }
+            }
+            return true;
+        }
+
+    }
+
+    static final class DeDuplicatePredicate<T> implements Predicate<T> {
+
+        private T prev;
+
+        @Override
+        public boolean apply(@Nullable T t) {
+            if (prev == null) {
+                prev = t;
+                return true;
+            } else {
+                if (!Objects.equals(prev, t)) {
+                    prev = t;
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    private static class IntersectionIterator<T> implements Iterator<T> {
+
+
+        private final Iterator<? extends T> sourceIterator;
+        private final Iterator<? extends T> targetIterator;
+        private final Comparator<? super T> itemComparator;
+
+        private T nextVal = null;
+
+        public IntersectionIterator(
+                Iterator<? extends T> sourceIterator,
+                Iterator<? extends T> targetIterator,
+                final Comparator<? super T> itemComparator) {
+
+            this.sourceIterator = Iterators.peekingIterator(Iterators.filter(Iterators.filter(sourceIterator, new CheckSortedPredicate<>(itemComparator)), new DeDuplicatePredicate<>()));
+            this.targetIterator = Iterators.peekingIterator(Iterators.filter(Iterators.filter(targetIterator, new CheckSortedPredicate<>(itemComparator)), new DeDuplicatePredicate<>()));
+            this.itemComparator = itemComparator;
+
+            adjust();
+        }
+
+        public boolean hasNext() {
+            if (nextVal == null) return false;
+            return true;
+        }
+
+        public T next() {
+            T toRet = nextVal;
+            adjust();
+            return toRet;
+        }
+
+        private void adjust() {
+            nextVal = null;
+            T val1 = sourceIterator.hasNext() ? sourceIterator.next() : null;
+            T val2 = targetIterator.hasNext() ? targetIterator.next() : null;
+            while (true) {
+                if (val1 == null || val2 == null) break;
+                if (val1 == val2) {
+                    nextVal = val1;
+                    break;
+                } else if (itemComparator.compare(val1, val2) < 0) { // val1 < val2
+                    if (sourceIterator.hasNext()) {
+                        val1 = sourceIterator.next();
+                    } else break;
+                } else {
+                    if (targetIterator.hasNext()) {
+                        val2 = targetIterator.next();
+                    } else break;
+                }
+            }
+        }
+    }
+
+    public static class SortedIteratorsBuilder<T> {
+
+        private Comparator<T> comparator;
+        private final List<Iterator<T>> unionIterators = new ArrayList<>();
+        private final List<Iterator<T>> excludeIterators = new ArrayList<>();
+        private final List<Iterator<T>> intersectIterators = new ArrayList<>();
+        private final List<Iterator<T>> differenceIterators = new ArrayList<>();
+
+        public SortedIteratorsBuilder<T> comparator(Comparator<T> comparator) {
+            this.comparator = comparator;
+            return this;
+        }
+
+        public SortedIteratorsBuilder<T> union(Iterator<T> unionIterator) {
+            this.unionIterators.add(unionIterator);
+            return this;
+        }
+
+        public SortedIteratorsBuilder<T> exclude(Iterator<T> excludeIterator) {
+            this.excludeIterators.add(excludeIterator);
+            return this;
+        }
+
+        public SortedIteratorsBuilder<T> intersect(Iterator<T> intersectIterator) {
+            this.intersectIterators.add(intersectIterator);
+            return this;
+        }
+
+        public SortedIteratorsBuilder<T> difference(Iterator<T> differenceIterator) {
+            this.differenceIterators.add(differenceIterator);
+            return this;
+        }
+
+        public Iterator<T> build() {
+            Iterator<T> it = SortedIterators.union(unionIterators, comparator);
+
+            if (!excludeIterators.isEmpty()) {
+                it = SortedIterators.exclude(it, SortedIterators.union(excludeIterators, comparator), comparator);
+            }
+
+            if (!intersectIterators.isEmpty()) {
+                Iterator<T> iterator = intersectIterators.get(0);
+
+                for (int i = 1; i < intersectIterators.size(); i++) {
+                    iterator = SortedIterators.intersection(iterator, intersectIterators.get(i), comparator);
+                }
+                it = SortedIterators.intersection(it, iterator, comparator);
+            }
+
+            if (!differenceIterators.isEmpty()) {
+                Iterator<T> iterator = differenceIterators.get(0);
+
+                for (int i = 1; i < differenceIterators.size(); i++) {
+                    iterator = SortedIterators.difference(iterator, intersectIterators.get(i), comparator);
+                }
+                it = SortedIterators.difference(it, iterator, comparator);
+            }
+
+            return it;
+        }
+    }
 }
