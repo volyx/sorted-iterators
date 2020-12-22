@@ -27,8 +27,8 @@ class SortedIteratorsTest {
     @Test
     void mergeSorted() {
 
-        final List<Integer> one = List.of(1, 2, 3, 3, 5, 5, 6, 8, 8).stream().distinct().collect(Collectors.toList());
-        final List<Integer> two = List.of(1, 4, 5, 5, 5, 6, 8, 9).stream().distinct().collect(Collectors.toList());
+        final List<Integer> one = List.of(1, 2, 3, 3, 5, 5, 6, 8, 8);
+        final List<Integer> two = List.of(1, 4, 5, 5, 5, 6, 8, 9);
 
         final Iterator<Integer> it = SortedIterators.union(List.of(one.iterator(), two.iterator()), Integer::compare);
 
