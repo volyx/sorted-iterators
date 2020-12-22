@@ -1,5 +1,5 @@
 <!--
-  ~ Copyright 2015, 2019 StreamEx contributors
+  ~ Copyright 2015, 2019 SortedIterators contributors
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
@@ -20,7 +20,8 @@
 
    <groupId>io.github.volyx</groupId>
    <artifactId>sorted-iterators</artifactId>
-   <version>0.0.1-SNAPSHOT</version>
+   <version>0.0.2
+      -SNAPSHOT</version>
    <packaging>jar</packaging>
 
    <name>Sorted Iterators</name>
@@ -334,7 +335,7 @@
                </execution>
             </executions>
             <configuration>
-               <serverId>ossrh</serverId>
+               <serverId>to-nexus</serverId>
                <nexusUrl>https://oss.sonatype.org/</nexusUrl>
                <autoReleaseAfterClose>true</autoReleaseAfterClose>
             </configuration>
