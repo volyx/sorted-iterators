@@ -52,6 +52,17 @@ THE POSSIBILITY OF SUCH DAMAGE.
 
     <dependencies>
         <dependency>
+            <!-- Guava -->
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>${guava.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.volyx</groupId>
+            <artifactId>sorted-iterators</artifactId>
+            <version>0.0.2-SNAPSHOT</version>
+        </dependency>
+        <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-core</artifactId>
             <version>${jmh.version}</version>
@@ -73,11 +84,6 @@ THE POSSIBILITY OF SUCH DAMAGE.
         <jmh.version>1.27</jmh.version>
 
         <!--
-            Java source/target to use for compilation.
-          -->
-        <javac.target>1.8</javac.target>
-
-        <!--
             Name of the benchmark Uber-JAR to generate.
           -->
         <uberjar.name>benchmarks</uberjar.name>
@@ -90,9 +96,9 @@ THE POSSIBILITY OF SUCH DAMAGE.
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.8.0</version>
                 <configuration>
-                    <compilerVersion>${javac.target}</compilerVersion>
-                    <source>${javac.target}</source>
-                    <target>${javac.target}</target>
+                    <compilerVersion>${java.version}</compilerVersion>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
                 </configuration>
             </plugin>
             <plugin>
@@ -109,7 +115,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
                             <finalName>${uberjar.name}</finalName>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>org.openjdk.jmh.Main</mainClass>
+                                    <mainClass>io.github.volyx.benchmark.SortedIteratorBench</mainClass>
                                 </transformer>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
@@ -130,6 +136,21 @@ THE POSSIBILITY OF SUCH DAMAGE.
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <testSourceDirectory>${project.build.sourceDirectory}</testSourceDirectory>
+                    <testClassesDirectory>${project.build.outputDirectory}</testClassesDirectory>
+<!--                    <excludes>-->
+<!--                        <exclude>**/AbstractMicrobenchmark.java</exclude>-->
+<!--                        <exclude>**/*$*.class</exclude>-->
+<!--                    </excludes>-->
+                    <systemPropertyVariables>
+                        <perfReportDir>${project.build.directory}/reports/performance/</perfReportDir>
+                    </systemPropertyVariables>
+                </configuration>
             </plugin>
         </plugins>
         <pluginManagement>

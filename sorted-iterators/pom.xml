@@ -13,6 +13,7 @@
     <artifactId>sorted-iterators</artifactId>
     <version>0.0.2-SNAPSHOT</version>
     <packaging>jar</packaging>
+    <name>Sorted Iterators</name>
 
     <dependencies>
         <dependency>

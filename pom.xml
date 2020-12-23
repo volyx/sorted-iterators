@@ -37,6 +37,7 @@
       <project.package>io.github.volyx</project.package>
       <project.package.path>io/github/volyx</project.package.path>
       <license.url>https://www.apache.org/licenses/LICENSE-2.0</license.url>
+      <java.version>11</java.version>
       <maven.compiler.source>11</maven.compiler.source>
       <maven.compiler.target>11</maven.compiler.target>
 
