@@ -2,7 +2,7 @@ package io.github.volyx;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -16,8 +16,6 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
-import static org.junit.Assert.assertEquals;
 
 class SortedIteratorsTest {
 
@@ -40,7 +38,7 @@ class SortedIteratorsTest {
         Collections.sort(expected);
         expected = expected.stream().filter(new SortedIterators.DeDuplicatePredicate<>()).collect(Collectors.toList());
 
-        assertEquals(expected, result);
+        Assertions.assertEquals(expected, result);
     }
 
     @Timeout(value = 30)
@@ -65,8 +63,8 @@ class SortedIteratorsTest {
 
             SortedIterators.differenceConsumer(one.iterator(), two.iterator(), Integer::compare, addConsumer, removeConsumer);
 
-            assertEquals("add list: one " + one + " two " + two + " remove " + removeList, addListExpected, addList);
-            assertEquals("remove list: one " + one + " two " + two, removeListExpected, removeList);
+            Assertions.assertEquals(addListExpected, addList, "add list: one " + one + " two " + two + " remove " + removeList);
+            Assertions.assertEquals(removeListExpected, removeList, "remove list: one " + one + " two " + two);
         }
     }
 
@@ -84,7 +82,7 @@ class SortedIteratorsTest {
 
             final List<Integer> real = ImmutableList.copyOf(it);
 
-            assertEquals("one " + one + " two " + two + " expected " + expected, expected, real);
+            Assertions.assertEquals(expected, real, "one " + one + " two " + two + " expected " + expected);
         }
     }
 
@@ -99,7 +97,7 @@ class SortedIteratorsTest {
 
         final List<Integer> result = ImmutableList.copyOf(it);
 
-        assertEquals(List.of(3), result);
+        Assertions.assertEquals(List.of(3), result);
     }
 
     @Test
@@ -127,9 +125,9 @@ class SortedIteratorsTest {
 
             Collections.sort(diff);
 
-            Assert.assertEquals("one: " + one + " two: " + two, diff, removeResult);
-            Assert.assertEquals("one: " + one + " two: " + two, removeList, removeResult);
-            Assert.assertEquals("one: " + one + " two: " + two, addList, addResult);
+            Assertions.assertEquals(diff, removeResult, "one: " + one + " two: " + two);
+            Assertions.assertEquals(removeList, removeResult, "one: " + one + " two: " + two);
+            Assertions.assertEquals(addList, addResult, "one: " + one + " two: " + two);
         }
     }
 
@@ -156,11 +154,11 @@ class SortedIteratorsTest {
 
             Collections.sort(addList);
 
-            Assert.assertNotNull(addList);
+            Assertions.assertNotNull(addList);
 
-            Assert.assertEquals("one: " + one + " two: " + two + " diff: " + diff, diff.size(), addList.size());
+            Assertions.assertEquals(diff.size(), addList.size(), "one: " + one + " two: " + two + " diff: " + diff);
 
-            Assert.assertEquals("one: " + one + " two: " + two + " diff: " + diff, diff, addList);
+            Assertions.assertEquals(diff, addList, "one: " + one + " two: " + two + " diff: " + diff);
         }
     }
 
@@ -189,9 +187,9 @@ class SortedIteratorsTest {
                     Integer::compareTo
             ));
 
-            Assert.assertNotNull(addList);
+            Assertions.assertNotNull(addList);
 
-            Assert.assertEquals("one: " + one + " two: " + two + " diff: " + diff, diff, addList);
+            Assertions.assertEquals(diff, addList, "one: " + one + " two: " + two + " diff: " + diff);
         }
     }
 
@@ -215,9 +213,9 @@ class SortedIteratorsTest {
 
             final ImmutableList<Integer> result = ImmutableList.copyOf(it);
 
-            Assert.assertEquals("one: " + one + " two: " + two + " intersection: " + intersection, intersection.size(), result.size());
+            Assertions.assertEquals(intersection.size(), result.size(), "one: " + one + " two: " + two + " intersection: " + intersection);
 
-            Assert.assertEquals("one: " + one + " two: " + two + " intersection: " + intersection, intersection, result);
+            Assertions.assertEquals(intersection, result, "one: " + one + " two: " + two + " intersection: " + intersection);
         }
     }
 
@@ -243,9 +241,9 @@ class SortedIteratorsTest {
 
             final ImmutableList<Integer> result = ImmutableList.copyOf(it);
 
-            Assert.assertEquals("one: " + one + " two: " + two + " excluded: " + excluded, excluded.size(), result.size());
+            Assertions.assertEquals(excluded.size(), result.size(), "one: " + one + " two: " + two + " excluded: " + excluded);
 
-            Assert.assertEquals("one: " + one + " two: " + two + " excluded: " + excluded, excluded, result);
+            Assertions.assertEquals(excluded, result, "one: " + one + " two: " + two + " excluded: " + excluded);
         }
     }
 
@@ -265,7 +263,7 @@ class SortedIteratorsTest {
 
         final ImmutableList<Integer> result = ImmutableList.copyOf(iterator);
 
-        Assert.assertEquals(List.of(1, 9), result);
+        Assertions.assertEquals(List.of(1, 9), result);
 
     }
 }
